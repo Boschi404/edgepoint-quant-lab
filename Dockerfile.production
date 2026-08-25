@@ -1,0 +1,22 @@
+# syntax=docker/dockerfile:1.7
+FROM rust:1.80-bookworm AS builder
+WORKDIR /workspace
+RUN apt-get update && apt-get install -y --no-install-recommends nodejs npm && rm -rf /var/lib/apt/lists/*
+COPY . .
+RUN cd ui && npm install && npm run build
+RUN cargo build --release -p qs-app
+
+FROM debian:bookworm-slim AS runtime
+ENV RUST_BACKTRACE=1 RUST_LOG=info QS_CONFIG=/app/configs/app.toml QS_RUNS_ROOT=/data/runs
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates sqlite3 \
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd --system qs && useradd --system --gid qs --home /app qs
+WORKDIR /app
+COPY --from=builder /workspace/target/release/qs-app /app/qs-app
+COPY --from=builder /workspace/ui/dist /app/ui/dist
+COPY configs /app/configs
+COPY data /app/data
+RUN mkdir -p /data/runs && chown -R qs:qs /data /app
+USER qs
+EXPOSE 8080
+ENTRYPOINT ["/app/qs-app"]

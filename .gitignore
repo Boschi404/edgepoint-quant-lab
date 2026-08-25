@@ -1,0 +1,10 @@
+/target/
+/runs/
+**/*.tmp
+.env
+.DS_Store
+/logs/*
+!/logs/.gitkeep
+/.pids/
+/debug-bundles/
+/ui/dist/

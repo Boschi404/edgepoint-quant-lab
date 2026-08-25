@@ -1,0 +1,25 @@
+services:
+  dev:
+    build:
+      context: .
+      target: dev
+    working_dir: /workspace
+    volumes:
+      - .:/workspace:cached
+      - cargo-cache:/usr/local/cargo/registry
+      - cargo-git:/usr/local/cargo/git
+      - target-cache:/workspace/target
+    environment:
+      RUST_BACKTRACE: "1"
+      RUST_LOG: "info"
+    command: bash
+    tty: true
+    stdin_open: true
+    ports:
+      - "3000:3000"
+      - "8080:8080"
+
+volumes:
+  cargo-cache:
+  cargo-git:
+  target-cache:

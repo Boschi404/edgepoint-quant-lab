@@ -1,0 +1,43 @@
+[workspace]
+resolver = "2"
+members = [
+  "crates/qs-core",
+  "crates/qs-storage",
+  "crates/qs-orchestrator",
+  "crates/qs-data",
+  "crates/qs-strategy-api",
+  "crates/qs-search",
+  "crates/qs-backtest",
+  "crates/qs-validation",
+  "crates/qs-metrics",
+  "crates/qs-export",
+  "crates/qs-api",
+  "crates/qs-app",
+  "crates/qs-example-strategy"
+]
+
+[workspace.package]
+edition = "2021"
+license = "Proprietary"
+
+[workspace.dependencies]
+anyhow = "1"
+async-trait = "0.1"
+axum = { version = "0.7", features = ["ws", "macros"] }
+chrono = { version = "0.4", features = ["serde"] }
+parking_lot = "0.12"
+rayon = "1.10"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+thiserror = "1"
+tokio = { version = "1", features = ["full"] }
+tokio-util = "0.7"
+toml = "0.8"
+uuid = { version = "1", features = ["v4", "serde"] }
+futures-util = "0.3"
+csv = "1"
+rusqlite = { version = "0.31", features = ["bundled"] }
+walkdir = "2"
+tower-http = { version = "0.5", features = ["fs", "trace", "cors"] }
+

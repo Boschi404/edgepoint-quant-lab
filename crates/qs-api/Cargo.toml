@@ -1,0 +1,18 @@
+[package]
+name = "qs-api"
+version = "0.1.0"
+edition.workspace = true
+
+[dependencies]
+qs-core = { path = "../qs-core" }
+qs-storage = { path = "../qs-storage" }
+async-trait.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+chrono.workspace = true
+axum.workspace = true
+tokio.workspace = true
+uuid.workspace = true
+parking_lot.workspace = true
+futures-util.workspace = true
+tower-http.workspace = true

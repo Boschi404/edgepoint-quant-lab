@@ -1,0 +1,39 @@
+[run]
+seed = 123456
+pipeline_version = "0.1.0"
+selected_components = [
+  "DataIngestion",
+  "DataNormalizer",
+  "DataQualityGate",
+  "ParameterGenerator",
+  "ParameterSearch",
+  "StrategyRunner",
+  "WalkForward",
+  "MonteCarlo",
+  "SensitivityAnalysis",
+  "RegimeAnalysis",
+  "VarianceStabilityAnalysis",
+  "ExecutionStress",
+  "ParameterDecay",
+  "FinalRanking",
+  "LiveExport",
+  "ReportGenerator"
+]
+
+[storage]
+root = "./runs"
+checkpoint_history = true
+
+[quality]
+policy = "Block"
+
+[[strategies]]
+id = "strategy_a"
+plugin = "./strategies/strategy_a"
+dataset_id = "dataset_1"
+
+[[datasets]]
+id = "dataset_1"
+source_uri = "file://path/to/raw/source"
+format_hint = "user_defined"
+timezone = "UTC"

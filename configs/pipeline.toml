@@ -1,0 +1,19 @@
+[pipeline]
+components = [
+  "DataIngestion",
+  "DataNormalizer",
+  "DataQualityGate",
+  "ParameterGenerator",
+  "ParameterSearch",
+  "StrategyRunner",
+  "WalkForward",
+  "MonteCarlo",
+  "SensitivityAnalysis",
+  "RegimeAnalysis",
+  "VarianceStabilityAnalysis",
+  "ExecutionStress",
+  "ParameterDecay",
+  "FinalRanking",
+  "LiveExport",
+  "ReportGenerator"
+]

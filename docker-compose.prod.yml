@@ -1,0 +1,18 @@
+services:
+  quant-system:
+    build:
+      context: .
+      dockerfile: Dockerfile.production
+      target: runtime
+    environment:
+      RUST_LOG: info
+      QS_CONFIG: /app/configs/app.toml
+      QS_RUNS_ROOT: /data/runs
+    volumes:
+      - qs-runs:/data/runs
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+
+volumes:
+  qs-runs:

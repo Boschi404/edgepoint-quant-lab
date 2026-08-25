@@ -1,0 +1,17 @@
+[server]
+bind = "0.0.0.0:8080"
+ui_dir = "./ui/dist"
+
+[storage]
+root = "./runs"
+checkpoint_history = true
+
+[orchestrator]
+progress_channel_capacity = 4096
+checkpoint_after_each_component = true
+checkpoint_after_each_batch = true
+
+[run_defaults]
+seed = 123456
+pipeline_version = "0.1.0"
+quality_policy = "Block"

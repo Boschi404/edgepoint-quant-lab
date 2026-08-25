@@ -1,0 +1,21 @@
+# Configure one or more datasets. Raw formats remain boundary concerns.
+# This sample schema is for CSV OHLCV adapter. It does not make CSV canonical.
+
+[[datasets]]
+dataset_id = "sample_dataset"
+source_uri = "file://./data/sample_ohlcv.csv"
+format_hint = "csv"
+timezone = "UTC"
+timestamp_unit = "millis"
+symbol = "SAMPLE"
+timeframe_name = "1m"
+timeframe_seconds = 60
+
+[datasets.columns]
+timestamp = "timestamp"
+open = "open"
+high = "high"
+low = "low"
+close = "close"
+volume = "volume"
+spread = "spread"

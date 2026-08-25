@@ -1,0 +1,46 @@
+services:
+  api:
+    build:
+      context: .
+      target: dev
+    working_dir: /workspace
+    volumes:
+      - .:/workspace:cached
+      - cargo-cache:/usr/local/cargo/registry
+      - cargo-git:/usr/local/cargo/git
+      - target-cache:/workspace/target
+    environment:
+      QS_BIND: 0.0.0.0:8080
+      QS_RUNS_ROOT: /workspace/runs
+      QS_DATASETS_CONFIG: /workspace/configs/datasets.toml
+      RUST_LOG: info,qs_app=debug,qs_api=debug,qs_orchestrator=debug,qs_storage=debug,qs_data=debug,qs_search=debug,qs_backtest=debug,qs_validation=debug,qs_export=debug
+      RUST_BACKTRACE: 1
+    command: bash -lc 'mkdir -p logs/docker && cargo run -p qs-app 2>&1 | tee logs/docker/api.log'
+    ports:
+      - "8080:8080"
+    tty: true
+    stdin_open: true
+
+  ui:
+    build:
+      context: .
+      target: dev
+    working_dir: /workspace/ui
+    volumes:
+      - .:/workspace:cached
+      - ui-node-modules:/workspace/ui/node_modules
+    environment:
+      VITE_API_BASE: http://localhost:8080
+    command: bash -lc 'mkdir -p ../logs/docker && npm install && npm run dev -- --host 0.0.0.0 --port 3000 2>&1 | tee ../logs/docker/ui.log'
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+    tty: true
+    stdin_open: true
+
+volumes:
+  cargo-cache:
+  cargo-git:
+  target-cache:
+  ui-node-modules:
