@@ -3,14 +3,29 @@ use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct RunConfig { pub seed: u64, pub pipeline_version: String, pub selected_components: Vec<ComponentId> }
+pub struct RunConfig {
+    pub seed: u64,
+    pub pipeline_version: String,
+    pub selected_components: Vec<ComponentId>,
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
-pub struct RunMetadata { pub created_at: i64, pub updated_at: i64, pub tags: BTreeMap<String, String> }
+pub struct RunMetadata {
+    pub created_at: i64,
+    pub updated_at: i64,
+    pub tags: BTreeMap<String, String>,
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
-pub struct ComponentStateMap { pub completed: BTreeSet<ComponentId>, pub running: Option<ComponentId> }
-impl ComponentStateMap { pub fn is_completed(&self, id: &ComponentId) -> bool { self.completed.contains(id) } }
+pub struct ComponentStateMap {
+    pub completed: BTreeSet<ComponentId>,
+    pub running: Option<ComponentId>,
+}
+impl ComponentStateMap {
+    pub fn is_completed(&self, id: &ComponentId) -> bool {
+        self.completed.contains(id)
+    }
+}
 
 #[derive(Default)]
 pub struct PipelineContext {
@@ -29,5 +44,9 @@ pub struct PipelineContext {
 }
 
 impl PipelineContext {
-    pub fn emit(&self, event: ProgressEvent) { if let Some(sink) = &self.progress { sink.publish(event); } }
+    pub fn emit(&self, event: ProgressEvent) {
+        if let Some(sink) = &self.progress {
+            sink.publish(event);
+        }
+    }
 }

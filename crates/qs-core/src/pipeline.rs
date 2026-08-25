@@ -3,13 +3,22 @@ use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct ComponentVersion { pub semver: String }
+pub struct ComponentVersion {
+    pub semver: String,
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum FailurePolicy { AbortRun, SkipComponent, Retry { max: u32 }, PauseRun }
+pub enum FailurePolicy {
+    AbortRun,
+    SkipComponent,
+    Retry { max: u32 },
+    PauseRun,
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct ComponentOutcome { pub message: String }
+pub struct ComponentOutcome {
+    pub message: String,
+}
 
 #[async_trait]
 pub trait PipelineComponent: Send + Sync {

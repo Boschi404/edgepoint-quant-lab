@@ -21,8 +21,13 @@ fn checkpoint_roundtrip_verifies_checksum() {
         created_at: 1,
         checksum: String::new(),
     };
-    if let Err(err) = store.save_latest(&checkpoint) { panic!("save checkpoint: {err}"); }
-    let loaded = match store.load_latest(&run_id) { Ok(value) => value, Err(err) => panic!("load checkpoint: {err}") };
+    if let Err(err) = store.save_latest(&checkpoint) {
+        panic!("save checkpoint: {err}");
+    }
+    let loaded = match store.load_latest(&run_id) {
+        Ok(value) => value,
+        Err(err) => panic!("load checkpoint: {err}"),
+    };
     assert_eq!(loaded.run_id.0, run_id.0);
     let _ = std::fs::remove_dir_all(root);
 }

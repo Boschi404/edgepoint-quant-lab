@@ -28,18 +28,22 @@ impl RunCatalog {
             })?;
         }
         let conn = Connection::open(path).map_err(sql_err("CATALOG_OPEN"))?;
-        conn.pragma_update(None, "journal_mode", "WAL").map_err(sql_err("CATALOG_WAL"))?;
-        conn.pragma_update(None, "foreign_keys", "ON").map_err(sql_err("CATALOG_FK"))?;
-        conn.execute_batch(include_str!("../migrations/001_init.sql")).map_err(sql_err("CATALOG_MIGRATE"))?;
+        conn.pragma_update(None, "journal_mode", "WAL")
+            .map_err(sql_err("CATALOG_WAL"))?;
+        conn.pragma_update(None, "foreign_keys", "ON")
+            .map_err(sql_err("CATALOG_FK"))?;
+        conn.execute_batch(include_str!("../migrations/001_init.sql"))
+            .map_err(sql_err("CATALOG_MIGRATE"))?;
         Ok(Self { conn })
     }
 
     pub fn upsert_run(&self, record: &CatalogRunRecord) -> Result<(), StorageError> {
-        let metadata_json = serde_json::to_string(&record.metadata).map_err(|e| StorageError::Message {
-            code: "CATALOG_METADATA_SERIALIZE".into(),
-            message: e.to_string(),
-            retryable: false,
-        })?;
+        let metadata_json =
+            serde_json::to_string(&record.metadata).map_err(|e| StorageError::Message {
+                code: "CATALOG_METADATA_SERIALIZE".into(),
+                message: e.to_string(),
+                retryable: false,
+            })?;
         self.conn.execute(
             "INSERT INTO runs(run_id,state,created_at,updated_at,pipeline_version,seed,metadata_json)
              VALUES(?1,?2,?3,?4,?5,?6,?7)
@@ -50,11 +54,18 @@ impl RunCatalog {
         Ok(())
     }
 
-    pub fn set_state(&self, run_id: &RunId, state: PersistentRunState, updated_at: i64) -> Result<(), StorageError> {
-        self.conn.execute(
-            "UPDATE runs SET state=?1, updated_at=?2 WHERE run_id=?3",
-            params![state_to_str(&state), updated_at, &run_id.0],
-        ).map_err(sql_err("CATALOG_SET_STATE"))?;
+    pub fn set_state(
+        &self,
+        run_id: &RunId,
+        state: PersistentRunState,
+        updated_at: i64,
+    ) -> Result<(), StorageError> {
+        self.conn
+            .execute(
+                "UPDATE runs SET state=?1, updated_at=?2 WHERE run_id=?3",
+                params![state_to_str(&state), updated_at, &run_id.0],
+            )
+            .map_err(sql_err("CATALOG_SET_STATE"))?;
         Ok(())
     }
 
@@ -70,7 +81,9 @@ impl RunCatalog {
         let mut stmt = self.conn.prepare(
             "SELECT run_id,state,created_at,updated_at,pipeline_version,seed,metadata_json FROM runs ORDER BY created_at DESC LIMIT ?1"
         ).map_err(sql_err("CATALOG_PREPARE_LIST"))?;
-        let rows = stmt.query_map(params![limit as i64], row_to_record).map_err(sql_err("CATALOG_QUERY_LIST"))?;
+        let rows = stmt
+            .query_map(params![limit as i64], row_to_record)
+            .map_err(sql_err("CATALOG_QUERY_LIST"))?;
         let mut out = Vec::new();
         for row in rows {
             out.push(row.map_err(sql_err("CATALOG_ROW_LIST"))?);
@@ -79,16 +92,21 @@ impl RunCatalog {
     }
 
     pub fn mark_running_as_interrupted(&self, now: i64) -> Result<usize, StorageError> {
-        self.conn.execute(
-            "UPDATE runs SET state='Interrupted', updated_at=?1 WHERE state='Running'",
-            params![now],
-        ).map_err(sql_err("CATALOG_MARK_INTERRUPTED"))
+        self.conn
+            .execute(
+                "UPDATE runs SET state='Interrupted', updated_at=?1 WHERE state='Running'",
+                params![now],
+            )
+            .map_err(sql_err("CATALOG_MARK_INTERRUPTED"))
     }
 }
 
 fn row_to_record(row: &rusqlite::Row<'_>) -> rusqlite::Result<CatalogRunRecord> {
     let metadata_json: String = row.get(6)?;
-    let metadata: RunMetadata = match serde_json::from_str(&metadata_json) { Ok(value) => value, Err(_) => RunMetadata::default() };
+    let metadata: RunMetadata = match serde_json::from_str(&metadata_json) {
+        Ok(value) => value,
+        Err(_) => RunMetadata::default(),
+    };
     let state_s: String = row.get(1)?;
     Ok(CatalogRunRecord {
         run_id: RunId(row.get(0)?),
@@ -122,5 +140,9 @@ fn str_to_state(value: &str) -> PersistentRunState {
 }
 
 fn sql_err(code: &'static str) -> impl Fn(rusqlite::Error) -> StorageError {
-    move |e| StorageError::Message { code: code.into(), message: e.to_string(), retryable: true }
+    move |e| StorageError::Message {
+        code: code.into(),
+        message: e.to_string(),
+        retryable: true,
+    }
 }

@@ -8,3 +8,4 @@
 /.pids/
 /debug-bundles/
 /ui/dist/
+/ui/node_modules/

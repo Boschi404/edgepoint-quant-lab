@@ -1,4 +1,6 @@
-use crate::{build_intensification_plan_from_candidates, robust_score, SearchPlanConfig};
+use crate::{
+    build_intensification_plan_from_candidates, robust_score, ScoredCandidate, SearchPlanConfig,
+};
 use qs_core::*;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
@@ -20,7 +22,11 @@ pub struct RuntimeSearchConfig {
 
 impl Default for RuntimeSearchConfig {
     fn default() -> Self {
-        Self { batch_size: 16, max_total_evaluations: 256, plan: SearchPlanConfig::default() }
+        Self {
+            batch_size: 16,
+            max_total_evaluations: 256,
+            plan: SearchPlanConfig::default(),
+        }
     }
 }
 
@@ -54,7 +60,9 @@ impl RuntimeSearchState {
         let mut out = Vec::new();
         let size = batch_size.max(1);
         for _ in 0..size {
-            let Some(candidate) = self.pending.pop_front() else { break; };
+            let Some(candidate) = self.pending.pop_front() else {
+                break;
+            };
             out.push(candidate);
         }
         out
@@ -68,21 +76,37 @@ impl RuntimeSearchState {
                 _ => Some(score),
             };
         }
-        self.evaluated.insert(result.parameter_set_id.clone(), ScoredCandidate { parameter_set_id: result.parameter_set_id.clone(), strategy_id: result.strategy_id.clone(), score });
+        self.evaluated.insert(
+            result.parameter_set_id.clone(),
+            ScoredCandidate {
+                parameter_set_id: result.parameter_set_id.clone(),
+                strategy_id: result.strategy_id.clone(),
+                score,
+            },
+        );
     }
 
     pub fn record_failure(&mut self, candidate: &ParameterSet, message: String) {
         self.failed.insert(candidate.id.clone(), message);
     }
 
-    pub fn is_finished(&self) -> bool { self.phase == RuntimeSearchPhase::Finished }
+    pub fn is_finished(&self) -> bool {
+        self.phase == RuntimeSearchPhase::Finished
+    }
 
     pub fn progress(&self) -> RuntimeSearchProgress {
         let evaluated = self.evaluated.len();
         let failed = self.failed.len();
         let pending = self.pending.len();
         let total = evaluated + failed + pending;
-        RuntimeSearchProgress { phase: self.phase.clone(), pending, evaluated, failed, total, best_score_so_far: self.best_score_so_far }
+        RuntimeSearchProgress {
+            phase: self.phase.clone(),
+            pending,
+            evaluated,
+            failed,
+            total,
+            best_score_so_far: self.best_score_so_far,
+        }
     }
 
     pub fn maybe_advance_phase(
@@ -92,7 +116,9 @@ impl RuntimeSearchState {
         results: &[EvaluationResult],
         config: &RuntimeSearchConfig,
     ) -> Result<(), SearchError> {
-        if !self.pending.is_empty() { return Ok(()); }
+        if !self.pending.is_empty() {
+            return Ok(());
+        }
         if self.evaluated.len() + self.failed.len() >= config.max_total_evaluations {
             self.phase = RuntimeSearchPhase::Finished;
             return Ok(());
@@ -100,18 +126,40 @@ impl RuntimeSearchState {
 
         match self.phase {
             RuntimeSearchPhase::SparseExploration if !self.generated_intensification => {
-                let plan = build_intensification_plan_from_candidates(space, results, all_candidates, &config.plan)?;
+                let plan = build_intensification_plan_from_candidates(
+                    space,
+                    results,
+                    all_candidates,
+                    &config.plan,
+                )?;
                 self.enqueue_unique(plan.intensification_candidates);
                 self.generated_intensification = true;
-                self.phase = if self.pending.is_empty() { RuntimeSearchPhase::ControlledCompletion } else { RuntimeSearchPhase::Intensification };
+                self.phase = if self.pending.is_empty() {
+                    RuntimeSearchPhase::ControlledCompletion
+                } else {
+                    RuntimeSearchPhase::Intensification
+                };
             }
-            RuntimeSearchPhase::Intensification | RuntimeSearchPhase::SparseExploration if !self.generated_completion => {
-                let plan = build_intensification_plan_from_candidates(space, results, all_candidates, &config.plan)?;
+            RuntimeSearchPhase::Intensification | RuntimeSearchPhase::SparseExploration
+                if !self.generated_completion =>
+            {
+                let plan = build_intensification_plan_from_candidates(
+                    space,
+                    results,
+                    all_candidates,
+                    &config.plan,
+                )?;
                 self.enqueue_unique(plan.completion_candidates);
                 self.generated_completion = true;
-                self.phase = if self.pending.is_empty() { RuntimeSearchPhase::Finished } else { RuntimeSearchPhase::ControlledCompletion };
+                self.phase = if self.pending.is_empty() {
+                    RuntimeSearchPhase::Finished
+                } else {
+                    RuntimeSearchPhase::ControlledCompletion
+                };
             }
-            RuntimeSearchPhase::ControlledCompletion | RuntimeSearchPhase::Intensification | RuntimeSearchPhase::SparseExploration => {
+            RuntimeSearchPhase::ControlledCompletion
+            | RuntimeSearchPhase::Intensification
+            | RuntimeSearchPhase::SparseExploration => {
                 self.phase = RuntimeSearchPhase::Finished;
             }
             RuntimeSearchPhase::Finished => {}
@@ -123,13 +171,19 @@ impl RuntimeSearchState {
         let known = self.known_ids();
         let mut newly_added = BTreeSet::new();
         for candidate in candidates {
-            if known.contains(&candidate.id) || !newly_added.insert(candidate.id.clone()) { continue; }
+            if known.contains(&candidate.id) || !newly_added.insert(candidate.id.clone()) {
+                continue;
+            }
             self.pending.push_back(candidate);
         }
     }
 
     fn known_ids(&self) -> BTreeSet<ParameterSetId> {
-        let mut ids = self.pending.iter().map(|candidate| candidate.id.clone()).collect::<BTreeSet<_>>();
+        let mut ids = self
+            .pending
+            .iter()
+            .map(|candidate| candidate.id.clone())
+            .collect::<BTreeSet<_>>();
         ids.extend(self.evaluated.keys().cloned());
         ids.extend(self.failed.keys().cloned());
         ids

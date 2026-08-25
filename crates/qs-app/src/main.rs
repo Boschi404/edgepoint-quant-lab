@@ -2,8 +2,8 @@ mod component_factory;
 mod runtime_launcher;
 
 use qs_api::{router, ApiState, RunManager};
-use runtime_launcher::AppRunLauncher;
 use qs_storage::{AtomicCheckpointStore, RecoveryService, RunCatalog, StorageLayout};
+use runtime_launcher::AppRunLauncher;
 use std::{net::SocketAddr, path::PathBuf, sync::Arc};
 
 #[tokio::main]
@@ -29,7 +29,10 @@ async fn main() {
     };
     let component_count = component_factory::build_default_components(boot_registry.clone()).len();
     println!("registered {component_count} pipeline components");
-    println!("registered {} static strategy plugins", boot_registry.list_ids().len());
+    println!(
+        "registered {} static strategy plugins",
+        boot_registry.list_ids().len()
+    );
 
     let storage_root = match std::env::var("QS_RUNS_ROOT") {
         Ok(value) => PathBuf::from(value),
@@ -64,9 +67,13 @@ fn run_startup_recovery(storage_root: &PathBuf) {
         }
     };
     let layout = StorageLayout::new(storage_root.clone());
-    let recovery = RecoveryService { checkpoint_store: AtomicCheckpointStore::new(layout) };
+    let recovery = RecoveryService {
+        checkpoint_store: AtomicCheckpointStore::new(layout),
+    };
     match recovery.mark_interrupted_on_startup(&catalog) {
-        Ok(count) if count > 0 => println!("startup recovery: marked {count} running runs as interrupted"),
+        Ok(count) if count > 0 => {
+            println!("startup recovery: marked {count} running runs as interrupted")
+        }
         Ok(_) => (),
         Err(err) => eprintln!("startup recovery failed: {err}"),
     }

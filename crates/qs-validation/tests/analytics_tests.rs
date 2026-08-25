@@ -3,24 +3,32 @@ use qs_validation::{monte_carlo_report, parameter_decay_report, walk_forward_rep
 use std::collections::BTreeMap;
 
 fn result_with_returns(values: &[f64]) -> EvaluationResult {
-    let instrument = Instrument { symbol: "X".into(), venue: None, asset_class: None };
-    let trades = values.iter().enumerate().map(|(idx, value)| Trade {
-        trade_id: format!("t{idx}"),
-        strategy_id: StrategyId("s".into()),
-        parameter_set_id: ParameterSetId("p".into()),
-        instrument: instrument.clone(),
-        direction: TradeDirection::Long,
-        entry_time: idx as i64,
-        exit_time: idx as i64 + 1,
-        entry_price: 1.0,
-        exit_price: 1.0 + value,
-        size: 1.0,
-        pnl: *value,
-        r_multiple: *value,
-        fees: 0.0,
-        slippage: 0.0,
-        tags: BTreeMap::new(),
-    }).collect::<Vec<_>>();
+    let instrument = Instrument {
+        symbol: "X".into(),
+        venue: None,
+        asset_class: None,
+    };
+    let trades = values
+        .iter()
+        .enumerate()
+        .map(|(idx, value)| Trade {
+            trade_id: format!("t{idx}"),
+            strategy_id: StrategyId("s".into()),
+            parameter_set_id: ParameterSetId("p".into()),
+            instrument: instrument.clone(),
+            direction: TradeDirection::Long,
+            entry_time: idx as i64,
+            exit_time: idx as i64 + 1,
+            entry_price: 1.0,
+            exit_price: 1.0 + value,
+            size: 1.0,
+            pnl: *value,
+            r_multiple: *value,
+            fees: 0.0,
+            slippage: 0.0,
+            tags: BTreeMap::new(),
+        })
+        .collect::<Vec<_>>();
     EvaluationResult {
         run_id: RunId("r".into()),
         strategy_id: StrategyId("s".into()),

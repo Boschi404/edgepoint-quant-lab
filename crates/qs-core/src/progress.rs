@@ -21,7 +21,11 @@ pub struct ProgressEvent {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct RunProgressSnapshot { pub run_id: RunId, pub latest: Option<ProgressEvent>, pub sequence: u64 }
+pub struct RunProgressSnapshot {
+    pub run_id: RunId,
+    pub latest: Option<ProgressEvent>,
+    pub sequence: u64,
+}
 
 #[derive(Clone)]
 pub struct ProgressSink {
@@ -33,15 +37,34 @@ pub struct ProgressSink {
 impl ProgressSink {
     pub fn new(run_id: RunId, capacity: usize) -> Self {
         let (sender, _) = broadcast::channel(capacity);
-        Self { sender, snapshot: Arc::new(RwLock::new(RunProgressSnapshot { run_id, latest: None, sequence: 0 })), sequence: Arc::new(std::sync::atomic::AtomicU64::new(0)) }
+        Self {
+            sender,
+            snapshot: Arc::new(RwLock::new(RunProgressSnapshot {
+                run_id,
+                latest: None,
+                sequence: 0,
+            })),
+            sequence: Arc::new(std::sync::atomic::AtomicU64::new(0)),
+        }
     }
 
     pub fn publish(&self, event: ProgressEvent) {
-        let seq = self.sequence.fetch_add(1, std::sync::atomic::Ordering::SeqCst) + 1;
-        { let mut s = self.snapshot.write(); s.latest = Some(event.clone()); s.sequence = seq; }
+        let seq = self
+            .sequence
+            .fetch_add(1, std::sync::atomic::Ordering::SeqCst)
+            + 1;
+        {
+            let mut s = self.snapshot.write();
+            s.latest = Some(event.clone());
+            s.sequence = seq;
+        }
         let _ = self.sender.send((seq, event));
     }
 
-    pub fn subscribe(&self) -> broadcast::Receiver<(u64, ProgressEvent)> { self.sender.subscribe() }
-    pub fn snapshot(&self) -> RunProgressSnapshot { self.snapshot.read().clone() }
+    pub fn subscribe(&self) -> broadcast::Receiver<(u64, ProgressEvent)> {
+        self.sender.subscribe()
+    }
+    pub fn snapshot(&self) -> RunProgressSnapshot {
+        self.snapshot.read().clone()
+    }
 }

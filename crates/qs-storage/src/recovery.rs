@@ -18,7 +18,6 @@ impl RecoveryService {
     }
 }
 
-
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct RecoverableRun {
     pub run_id: RunId,
@@ -29,9 +28,18 @@ impl RecoveryService {
     pub fn list_recoverable(&self, runs: &[CatalogRunRecord]) -> Vec<RecoverableRun> {
         let mut out = Vec::new();
         for run in runs {
-            if matches!(run.state, PersistentRunState::Interrupted | PersistentRunState::Paused) {
-                let checkpoint_valid = match self.verify_recoverable(&run.run_id) { Ok(value) => value, Err(_) => false };
-                out.push(RecoverableRun { run_id: run.run_id.clone(), checkpoint_valid });
+            if matches!(
+                run.state,
+                PersistentRunState::Interrupted | PersistentRunState::Paused
+            ) {
+                let checkpoint_valid = match self.verify_recoverable(&run.run_id) {
+                    Ok(value) => value,
+                    Err(_) => false,
+                };
+                out.push(RecoverableRun {
+                    run_id: run.run_id.clone(),
+                    checkpoint_valid,
+                });
             }
         }
         out

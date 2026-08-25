@@ -13,12 +13,21 @@ pub struct RetentionPolicy {
 
 impl Default for RetentionPolicy {
     fn default() -> Self {
-        Self { keep_metadata_forever: true, keep_best_artifacts: true, keep_full_trades_for_top_n: Some(50), delete_failed_after_days: Some(30), compact_after_days: Some(90) }
+        Self {
+            keep_metadata_forever: true,
+            keep_best_artifacts: true,
+            keep_full_trades_for_top_n: Some(50),
+            delete_failed_after_days: Some(30),
+            compact_after_days: Some(90),
+        }
     }
 }
 
 #[derive(Clone, Debug)]
-pub struct RetentionPlanner { pub root: PathBuf, pub policy: RetentionPolicy }
+pub struct RetentionPlanner {
+    pub root: PathBuf,
+    pub policy: RetentionPolicy,
+}
 
 impl RetentionPlanner {
     pub fn plan(&self) -> Result<Vec<RetentionAction>, StorageError> {

@@ -1,6 +1,10 @@
 use qs_core::*;
 use serde::{Deserialize, Serialize};
-use std::{collections::BTreeMap, fs, path::{Path, PathBuf}};
+use std::{
+    collections::BTreeMap,
+    fs,
+    path::{Path, PathBuf},
+};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct CompactionManifest {
@@ -26,9 +30,14 @@ pub struct JsonlToColumnarCompactor {
 }
 
 impl JsonlToColumnarCompactor {
-    pub fn new(root: impl Into<PathBuf>) -> Self { Self { root: root.into() } }
+    pub fn new(root: impl Into<PathBuf>) -> Self {
+        Self { root: root.into() }
+    }
 
-    pub fn compact_columnar_json(&self, run_id: &RunId) -> Result<CompactionManifest, StorageError> {
+    pub fn compact_columnar_json(
+        &self,
+        run_id: &RunId,
+    ) -> Result<CompactionManifest, StorageError> {
         let results_dir = self.root.join("results").join(&run_id.0);
         fs::create_dir_all(&results_dir).map_err(storage_err("COMPACTION_MKDIR", true))?;
 
@@ -50,7 +59,9 @@ impl JsonlToColumnarCompactor {
                     notes.push(format!("{source}: compacted {row_count} rows"));
                 }
                 Err(err) if *source == "trades.jsonl" || *source == "equity.jsonl" => {
-                    notes.push(format!("{source}: optional result file unavailable or empty: {err}"));
+                    notes.push(format!(
+                        "{source}: optional result file unavailable or empty: {err}"
+                    ));
                 }
                 Err(err) => return Err(err),
             }
@@ -60,41 +71,69 @@ impl JsonlToColumnarCompactor {
             schema_version: 1,
             run_id: run_id.clone(),
             created_at: chrono::Utc::now().timestamp_millis(),
-            source_files: jobs.iter().map(|(source, _)| (*source).to_owned()).collect(),
+            source_files: jobs
+                .iter()
+                .map(|(source, _)| (*source).to_owned())
+                .collect(),
             output_files: outputs,
             status: CompactionStatus::Completed,
             notes,
         };
         let path = results_dir.join("compaction_manifest.json");
-        crate::atomic_write_json(&path, &manifest).map_err(|e| StorageError::Message { code: "COMPACTION_MANIFEST_WRITE".into(), message: e.to_string(), retryable: true })?;
+        crate::atomic_write_json(&path, &manifest).map_err(|e| StorageError::Message {
+            code: "COMPACTION_MANIFEST_WRITE".into(),
+            message: e.to_string(),
+            retryable: true,
+        })?;
         Ok(manifest)
     }
 
-    pub fn write_planned_manifest(&self, run_id: &RunId) -> Result<CompactionManifest, StorageError> {
+    pub fn write_planned_manifest(
+        &self,
+        run_id: &RunId,
+    ) -> Result<CompactionManifest, StorageError> {
         let results_dir = self.root.join("results").join(&run_id.0);
         fs::create_dir_all(&results_dir).map_err(storage_err("COMPACTION_MKDIR", true))?;
         let manifest = CompactionManifest {
             schema_version: 1,
             run_id: run_id.clone(),
             created_at: chrono::Utc::now().timestamp_millis(),
-            source_files: vec!["evaluations.jsonl".into(), "trades.jsonl".into(), "equity.jsonl".into(), "metrics.jsonl".into()],
-            output_files: vec!["evaluations.columns.json".into(), "trades.columns.json".into(), "equity.columns.json".into(), "metrics.columns.json".into()],
+            source_files: vec![
+                "evaluations.jsonl".into(),
+                "trades.jsonl".into(),
+                "equity.jsonl".into(),
+                "metrics.jsonl".into(),
+            ],
+            output_files: vec![
+                "evaluations.columns.json".into(),
+                "trades.columns.json".into(),
+                "equity.columns.json".into(),
+                "metrics.columns.json".into(),
+            ],
             status: CompactionStatus::Planned,
             notes: vec!["Columnar JSON compaction was planned but not executed".into()],
         };
         let path = results_dir.join("compaction_manifest.json");
-        crate::atomic_write_json(&path, &manifest).map_err(|e| StorageError::Message { code: "COMPACTION_MANIFEST_WRITE".into(), message: e.to_string(), retryable: true })?;
+        crate::atomic_write_json(&path, &manifest).map_err(|e| StorageError::Message {
+            code: "COMPACTION_MANIFEST_WRITE".into(),
+            message: e.to_string(),
+            retryable: true,
+        })?;
         Ok(manifest)
     }
 }
 
 fn compact_one_file(source_path: &Path, output_path: &Path) -> Result<usize, StorageError> {
-    let content = fs::read_to_string(source_path).map_err(storage_err("COMPACTION_READ_SOURCE", true))?;
+    let content =
+        fs::read_to_string(source_path).map_err(storage_err("COMPACTION_READ_SOURCE", true))?;
     let mut columns: BTreeMap<String, Vec<serde_json::Value>> = BTreeMap::new();
     let mut row_count = 0usize;
     for line in content.lines() {
-        if line.trim().is_empty() { continue; }
-        let value: serde_json::Value = serde_json::from_str(line).map_err(storage_err("COMPACTION_PARSE_JSONL", false))?;
+        if line.trim().is_empty() {
+            continue;
+        }
+        let value: serde_json::Value =
+            serde_json::from_str(line).map_err(storage_err("COMPACTION_PARSE_JSONL", false))?;
         let flattened = flatten_json(&value);
         for key in flattened.keys() {
             if !columns.contains_key(key) {
@@ -110,14 +149,22 @@ fn compact_one_file(source_path: &Path, output_path: &Path) -> Result<usize, Sto
         row_count += 1;
     }
     if row_count == 0 {
-        return Err(StorageError::Message { code: "COMPACTION_EMPTY_SOURCE".into(), message: source_path.display().to_string(), retryable: false });
+        return Err(StorageError::Message {
+            code: "COMPACTION_EMPTY_SOURCE".into(),
+            message: source_path.display().to_string(),
+            retryable: false,
+        });
     }
     let output = serde_json::json!({
         "schema_version": 1,
         "row_count": row_count,
         "columns": columns
     });
-    crate::atomic_write_json(output_path, &output).map_err(|e| StorageError::Message { code: "COMPACTION_WRITE_OUTPUT".into(), message: e.to_string(), retryable: true })?;
+    crate::atomic_write_json(output_path, &output).map_err(|e| StorageError::Message {
+        code: "COMPACTION_WRITE_OUTPUT".into(),
+        message: e.to_string(),
+        retryable: true,
+    })?;
     Ok(row_count)
 }
 
@@ -127,11 +174,19 @@ fn flatten_json(value: &serde_json::Value) -> BTreeMap<String, serde_json::Value
     out
 }
 
-fn flatten_into(prefix: &str, value: &serde_json::Value, out: &mut BTreeMap<String, serde_json::Value>) {
+fn flatten_into(
+    prefix: &str,
+    value: &serde_json::Value,
+    out: &mut BTreeMap<String, serde_json::Value>,
+) {
     match value {
         serde_json::Value::Object(map) => {
             for (key, child) in map {
-                let next = if prefix.is_empty() { key.clone() } else { format!("{prefix}.{key}") };
+                let next = if prefix.is_empty() {
+                    key.clone()
+                } else {
+                    format!("{prefix}.{key}")
+                };
                 flatten_into(&next, child, out);
             }
         }
@@ -144,6 +199,13 @@ fn flatten_into(prefix: &str, value: &serde_json::Value, out: &mut BTreeMap<Stri
     }
 }
 
-fn storage_err<E: std::fmt::Display>(code: &'static str, retryable: bool) -> impl Fn(E) -> StorageError {
-    move |e| StorageError::Message { code: code.into(), message: e.to_string(), retryable }
+fn storage_err<E: std::fmt::Display>(
+    code: &'static str,
+    retryable: bool,
+) -> impl Fn(E) -> StorageError {
+    move |e| StorageError::Message {
+        code: code.into(),
+        message: e.to_string(),
+        retryable,
+    }
 }

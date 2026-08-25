@@ -1,3 +1,4 @@
+use axum::extract::ws::Message;
 use axum::{
     body::Body,
     extract::{Path, State, WebSocketUpgrade},
@@ -6,13 +7,16 @@ use axum::{
     routing::{get, post},
     Json, Router,
 };
-use axum::extract::ws::Message;
 use futures_util::{SinkExt, StreamExt};
 use parking_lot::RwLock;
 use qs_core::*;
 use qs_storage::{AtomicCheckpointStore, StorageLayout};
 use serde::{Deserialize, Serialize};
-use std::{collections::BTreeMap, path::{Component, PathBuf}, sync::Arc};
+use std::{
+    collections::BTreeMap,
+    path::{Component, PathBuf},
+    sync::Arc,
+};
 use tower_http::services::ServeDir;
 
 pub trait RunLauncher: Send + Sync {
@@ -27,11 +31,27 @@ pub struct ApiState {
 }
 
 impl ApiState {
-    pub fn new(runs: RunManager, launcher: Option<Arc<dyn RunLauncher>>, storage_root: PathBuf) -> Self { Self { runs, launcher, storage_root } }
+    pub fn new(
+        runs: RunManager,
+        launcher: Option<Arc<dyn RunLauncher>>,
+        storage_root: PathBuf,
+    ) -> Self {
+        Self {
+            runs,
+            launcher,
+            storage_root,
+        }
+    }
 }
 
 impl Default for ApiState {
-    fn default() -> Self { Self { runs: RunManager::default(), launcher: None, storage_root: PathBuf::from("./runs") } }
+    fn default() -> Self {
+        Self {
+            runs: RunManager::default(),
+            launcher: None,
+            storage_root: PathBuf::from("./runs"),
+        }
+    }
 }
 
 pub fn router(state: ApiState) -> Router {
@@ -49,8 +69,14 @@ pub fn router(state: ApiState) -> Router {
         .route("/api/runs/:run_id/search-state", get(run_search_state))
         .route("/api/runs/:run_id/validation", get(run_validation))
         .route("/api/runs/:run_id/artifacts", get(list_artifacts))
-        .route("/api/runs/:run_id/artifacts/*artifact_path", get(get_artifact))
-        .route("/api/runs/:run_id/results/evaluations", get(run_evaluations))
+        .route(
+            "/api/runs/:run_id/artifacts/*artifact_path",
+            get(get_artifact),
+        )
+        .route(
+            "/api/runs/:run_id/results/evaluations",
+            get(run_evaluations),
+        )
         .route("/api/runs/:run_id/results/trades", get(run_trades))
         .route("/api/runs/:run_id/results/equity", get(run_equity))
         .route("/api/runs/:run_id/results/metrics", get(run_metrics))
@@ -59,7 +85,9 @@ pub fn router(state: ApiState) -> Router {
         .with_state(state)
 }
 
-async fn health() -> &'static str { "ok" }
+async fn health() -> &'static str {
+    "ok"
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct WsEnvelope<T> {
@@ -106,7 +134,13 @@ impl RunManager {
         let now = chrono::Utc::now().timestamp_millis();
         let progress = ProgressSink::new(RunId(run_id.clone()), 4096);
         let handle = RunHandle {
-            summary: RunSummary { run_id: run_id.clone(), state: PersistentRunState::Running, created_at: now, updated_at: now, pipeline_version: "0.1.0".into() },
+            summary: RunSummary {
+                run_id: run_id.clone(),
+                state: PersistentRunState::Running,
+                created_at: now,
+                updated_at: now,
+                pipeline_version: "0.1.0".into(),
+            },
             progress: progress.clone(),
             pause: PauseToken::default(),
             cancellation: CancellationToken::default(),
@@ -129,8 +163,16 @@ impl RunManager {
         handle
     }
 
-    pub fn list(&self) -> Vec<RunSummary> { self.inner.read().values().map(|h| h.summary.clone()).collect() }
-    pub fn get(&self, run_id: &str) -> Option<RunHandle> { self.inner.read().get(run_id).cloned() }
+    pub fn list(&self) -> Vec<RunSummary> {
+        self.inner
+            .read()
+            .values()
+            .map(|h| h.summary.clone())
+            .collect()
+    }
+    pub fn get(&self, run_id: &str) -> Option<RunHandle> {
+        self.inner.read().get(run_id).cloned()
+    }
 
     pub fn set_state(&self, run_id: &str, state: PersistentRunState) -> Option<RunHandle> {
         let mut guard = self.inner.write();
@@ -149,22 +191,44 @@ pub struct RecoverableRunSummary {
 
 async fn list_recoverable_runs(State(state): State<ApiState>) -> Json<Vec<RecoverableRunSummary>> {
     let catalog_path = state.storage_root.join("catalog").join("runs.sqlite");
-    let from_catalog = qs_storage::RunCatalog::open(&catalog_path)
-        .and_then(|catalog| catalog.list_runs(500));
+    let from_catalog =
+        qs_storage::RunCatalog::open(&catalog_path).and_then(|catalog| catalog.list_runs(500));
     let out = match from_catalog {
-        Ok(records) => records.into_iter()
-            .filter(|run| matches!(run.state, PersistentRunState::Interrupted | PersistentRunState::Paused))
-            .map(|run| RecoverableRunSummary { run_id: run.run_id.0, state: run.state })
+        Ok(records) => records
+            .into_iter()
+            .filter(|run| {
+                matches!(
+                    run.state,
+                    PersistentRunState::Interrupted | PersistentRunState::Paused
+                )
+            })
+            .map(|run| RecoverableRunSummary {
+                run_id: run.run_id.0,
+                state: run.state,
+            })
             .collect(),
-        Err(_) => state.runs.list().into_iter()
-            .filter(|run| matches!(run.state, PersistentRunState::Interrupted | PersistentRunState::Paused))
-            .map(|run| RecoverableRunSummary { run_id: run.run_id, state: run.state })
+        Err(_) => state
+            .runs
+            .list()
+            .into_iter()
+            .filter(|run| {
+                matches!(
+                    run.state,
+                    PersistentRunState::Interrupted | PersistentRunState::Paused
+                )
+            })
+            .map(|run| RecoverableRunSummary {
+                run_id: run.run_id,
+                state: run.state,
+            })
             .collect(),
     };
     Json(out)
 }
 
-async fn list_runs(State(state): State<ApiState>) -> Json<Vec<RunSummary>> { Json(state.runs.list()) }
+async fn list_runs(State(state): State<ApiState>) -> Json<Vec<RunSummary>> {
+    Json(state.runs.list())
+}
 
 async fn create_run(State(state): State<ApiState>) -> Json<RunSummary> {
     let handle = state.runs.create_pending();
@@ -174,8 +238,15 @@ async fn create_run(State(state): State<ApiState>) -> Json<RunSummary> {
     Json(handle.summary)
 }
 
-async fn get_run(State(state): State<ApiState>, Path(run_id): Path<String>) -> Result<Json<RunSummary>, StatusCode> {
-    state.runs.get(&run_id).map(|h| Json(h.summary)).ok_or(StatusCode::NOT_FOUND)
+async fn get_run(
+    State(state): State<ApiState>,
+    Path(run_id): Path<String>,
+) -> Result<Json<RunSummary>, StatusCode> {
+    state
+        .runs
+        .get(&run_id)
+        .map(|h| Json(h.summary))
+        .ok_or(StatusCode::NOT_FOUND)
 }
 
 async fn pause_run(State(state): State<ApiState>, Path(run_id): Path<String>) -> StatusCode {
@@ -183,7 +254,9 @@ async fn pause_run(State(state): State<ApiState>, Path(run_id): Path<String>) ->
         handle.pause.pause();
         publish_lifecycle(&handle, RunStatus::Paused, "manual pause requested");
         StatusCode::ACCEPTED
-    } else { StatusCode::NOT_FOUND }
+    } else {
+        StatusCode::NOT_FOUND
+    }
 }
 
 async fn resume_run(State(state): State<ApiState>, Path(run_id): Path<String>) -> StatusCode {
@@ -191,15 +264,23 @@ async fn resume_run(State(state): State<ApiState>, Path(run_id): Path<String>) -
         handle.pause.resume();
         publish_lifecycle(&handle, RunStatus::Running, "manual resume requested");
         StatusCode::ACCEPTED
-    } else { StatusCode::NOT_FOUND }
+    } else {
+        StatusCode::NOT_FOUND
+    }
 }
 
 async fn cancel_run(State(state): State<ApiState>, Path(run_id): Path<String>) -> StatusCode {
     if let Some(handle) = state.runs.set_state(&run_id, PersistentRunState::Failed) {
         handle.cancellation.cancel();
-        publish_lifecycle(&handle, RunStatus::Cancelled, "manual cancellation requested");
+        publish_lifecycle(
+            &handle,
+            RunStatus::Cancelled,
+            "manual cancellation requested",
+        );
         StatusCode::ACCEPTED
-    } else { StatusCode::NOT_FOUND }
+    } else {
+        StatusCode::NOT_FOUND
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -208,37 +289,96 @@ pub struct ArtifactEntry {
     pub bytes: u64,
 }
 
-async fn run_evaluations(State(state): State<ApiState>, Path(run_id): Path<String>) -> Result<Json<Vec<serde_json::Value>>, StatusCode> {
-    read_jsonl_values(state.storage_root.join("results").join(&run_id).join("evaluations.jsonl")).await.map(Json)
+async fn run_evaluations(
+    State(state): State<ApiState>,
+    Path(run_id): Path<String>,
+) -> Result<Json<Vec<serde_json::Value>>, StatusCode> {
+    read_jsonl_values(
+        state
+            .storage_root
+            .join("results")
+            .join(&run_id)
+            .join("evaluations.jsonl"),
+    )
+    .await
+    .map(Json)
 }
 
-async fn run_trades(State(state): State<ApiState>, Path(run_id): Path<String>) -> Result<Json<Vec<serde_json::Value>>, StatusCode> {
-    read_jsonl_values(state.storage_root.join("results").join(&run_id).join("trades.jsonl")).await.map(Json)
+async fn run_trades(
+    State(state): State<ApiState>,
+    Path(run_id): Path<String>,
+) -> Result<Json<Vec<serde_json::Value>>, StatusCode> {
+    read_jsonl_values(
+        state
+            .storage_root
+            .join("results")
+            .join(&run_id)
+            .join("trades.jsonl"),
+    )
+    .await
+    .map(Json)
 }
 
-async fn run_equity(State(state): State<ApiState>, Path(run_id): Path<String>) -> Result<Json<Vec<serde_json::Value>>, StatusCode> {
-    read_jsonl_values(state.storage_root.join("results").join(&run_id).join("equity.jsonl")).await.map(Json)
+async fn run_equity(
+    State(state): State<ApiState>,
+    Path(run_id): Path<String>,
+) -> Result<Json<Vec<serde_json::Value>>, StatusCode> {
+    read_jsonl_values(
+        state
+            .storage_root
+            .join("results")
+            .join(&run_id)
+            .join("equity.jsonl"),
+    )
+    .await
+    .map(Json)
 }
 
-async fn run_metrics(State(state): State<ApiState>, Path(run_id): Path<String>) -> Result<Json<Vec<serde_json::Value>>, StatusCode> {
-    read_jsonl_values(state.storage_root.join("results").join(&run_id).join("metrics.jsonl")).await.map(Json)
+async fn run_metrics(
+    State(state): State<ApiState>,
+    Path(run_id): Path<String>,
+) -> Result<Json<Vec<serde_json::Value>>, StatusCode> {
+    read_jsonl_values(
+        state
+            .storage_root
+            .join("results")
+            .join(&run_id)
+            .join("metrics.jsonl"),
+    )
+    .await
+    .map(Json)
 }
 
 async fn read_jsonl_values(path: PathBuf) -> Result<Vec<serde_json::Value>, StatusCode> {
-    let content = tokio::fs::read_to_string(path).await.map_err(|_| StatusCode::NOT_FOUND)?;
+    let content = tokio::fs::read_to_string(path)
+        .await
+        .map_err(|_| StatusCode::NOT_FOUND)?;
     let mut values = Vec::new();
     for line in content.lines() {
-        if line.trim().is_empty() { continue; }
-        let value: serde_json::Value = serde_json::from_str(line).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        if line.trim().is_empty() {
+            continue;
+        }
+        let value: serde_json::Value =
+            serde_json::from_str(line).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
         values.push(value);
     }
     Ok(values)
 }
 
-async fn run_validation(State(state): State<ApiState>, Path(run_id): Path<String>) -> Result<Json<serde_json::Value>, StatusCode> {
-    let report_path = state.storage_root.join("artifacts").join(&run_id).join("report.json");
-    let bytes = tokio::fs::read(&report_path).await.map_err(|_| StatusCode::NOT_FOUND)?;
-    let report: serde_json::Value = serde_json::from_slice(&bytes).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+async fn run_validation(
+    State(state): State<ApiState>,
+    Path(run_id): Path<String>,
+) -> Result<Json<serde_json::Value>, StatusCode> {
+    let report_path = state
+        .storage_root
+        .join("artifacts")
+        .join(&run_id)
+        .join("report.json");
+    let bytes = tokio::fs::read(&report_path)
+        .await
+        .map_err(|_| StatusCode::NOT_FOUND)?;
+    let report: serde_json::Value =
+        serde_json::from_slice(&bytes).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     let validation = serde_json::json!({
         "walk_forward_reports": report.get("walk_forward_reports").cloned(),
         "monte_carlo_reports": report.get("monte_carlo_reports").cloned(),
@@ -250,35 +390,75 @@ async fn run_validation(State(state): State<ApiState>, Path(run_id): Path<String
     Ok(Json(validation))
 }
 
-async fn run_search_state(State(state): State<ApiState>, Path(run_id): Path<String>) -> Result<Json<serde_json::Value>, StatusCode> {
-    let path = state.storage_root.join("checkpoints").join(&run_id).join("search_state.latest.json");
-    let bytes = tokio::fs::read(&path).await.map_err(|_| StatusCode::NOT_FOUND)?;
-    let value: serde_json::Value = serde_json::from_slice(&bytes).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+async fn run_search_state(
+    State(state): State<ApiState>,
+    Path(run_id): Path<String>,
+) -> Result<Json<serde_json::Value>, StatusCode> {
+    let path = state
+        .storage_root
+        .join("checkpoints")
+        .join(&run_id)
+        .join("search_state.latest.json");
+    let bytes = tokio::fs::read(&path)
+        .await
+        .map_err(|_| StatusCode::NOT_FOUND)?;
+    let value: serde_json::Value =
+        serde_json::from_slice(&bytes).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     Ok(Json(value))
 }
 
-async fn run_ranking(State(state): State<ApiState>, Path(run_id): Path<String>) -> Result<Json<serde_json::Value>, StatusCode> {
-    let report_path = state.storage_root.join("artifacts").join(&run_id).join("report.json");
-    let bytes = tokio::fs::read(&report_path).await.map_err(|_| StatusCode::NOT_FOUND)?;
-    let report: serde_json::Value = serde_json::from_slice(&bytes).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-    let ranking = match report.get("ranking_state").cloned() { Some(value) => value, None => serde_json::json!({}) };
+async fn run_ranking(
+    State(state): State<ApiState>,
+    Path(run_id): Path<String>,
+) -> Result<Json<serde_json::Value>, StatusCode> {
+    let report_path = state
+        .storage_root
+        .join("artifacts")
+        .join(&run_id)
+        .join("report.json");
+    let bytes = tokio::fs::read(&report_path)
+        .await
+        .map_err(|_| StatusCode::NOT_FOUND)?;
+    let report: serde_json::Value =
+        serde_json::from_slice(&bytes).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let ranking = match report.get("ranking_state").cloned() {
+        Some(value) => value,
+        None => serde_json::json!({}),
+    };
     Ok(Json(ranking))
 }
 
-async fn list_artifacts(State(state): State<ApiState>, Path(run_id): Path<String>) -> Result<Json<Vec<ArtifactEntry>>, StatusCode> {
+async fn list_artifacts(
+    State(state): State<ApiState>,
+    Path(run_id): Path<String>,
+) -> Result<Json<Vec<ArtifactEntry>>, StatusCode> {
     let base = state.storage_root.join("artifacts").join(&run_id);
     let mut entries = Vec::new();
     let mut stack = vec![base.clone()];
     while let Some(dir) = stack.pop() {
-        let mut read_dir = tokio::fs::read_dir(&dir).await.map_err(|_| StatusCode::NOT_FOUND)?;
-        while let Some(entry) = read_dir.next_entry().await.map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)? {
+        let mut read_dir = tokio::fs::read_dir(&dir)
+            .await
+            .map_err(|_| StatusCode::NOT_FOUND)?;
+        while let Some(entry) = read_dir
+            .next_entry()
+            .await
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        {
             let path = entry.path();
-            let metadata = entry.metadata().await.map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+            let metadata = entry
+                .metadata()
+                .await
+                .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
             if metadata.is_dir() {
                 stack.push(path);
             } else if metadata.is_file() {
-                let rel = path.strip_prefix(&base).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-                entries.push(ArtifactEntry { path: rel.to_string_lossy().to_string(), bytes: metadata.len() });
+                let rel = path
+                    .strip_prefix(&base)
+                    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+                entries.push(ArtifactEntry {
+                    path: rel.to_string_lossy().to_string(),
+                    bytes: metadata.len(),
+                });
             }
         }
     }
@@ -286,18 +466,34 @@ async fn list_artifacts(State(state): State<ApiState>, Path(run_id): Path<String
     Ok(Json(entries))
 }
 
-async fn get_artifact(State(state): State<ApiState>, Path((run_id, artifact_path)): Path<(String, String)>) -> Result<impl IntoResponse, StatusCode> {
-    if !is_safe_relative_path(&artifact_path) { return Err(StatusCode::BAD_REQUEST); }
-    let path = state.storage_root.join("artifacts").join(&run_id).join(&artifact_path);
-    let bytes = tokio::fs::read(&path).await.map_err(|_| StatusCode::NOT_FOUND)?;
+async fn get_artifact(
+    State(state): State<ApiState>,
+    Path((run_id, artifact_path)): Path<(String, String)>,
+) -> Result<impl IntoResponse, StatusCode> {
+    if !is_safe_relative_path(&artifact_path) {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+    let path = state
+        .storage_root
+        .join("artifacts")
+        .join(&run_id)
+        .join(&artifact_path);
+    let bytes = tokio::fs::read(&path)
+        .await
+        .map_err(|_| StatusCode::NOT_FOUND)?;
     let mut headers = HeaderMap::new();
-    headers.insert(header::CONTENT_TYPE, HeaderValue::from_static("application/octet-stream"));
+    headers.insert(
+        header::CONTENT_TYPE,
+        HeaderValue::from_static("application/octet-stream"),
+    );
     Ok((headers, Body::from(bytes)))
 }
 
 fn is_safe_relative_path(path: &str) -> bool {
     let candidate = std::path::Path::new(path);
-    if candidate.is_absolute() { return false; }
+    if candidate.is_absolute() {
+        return false;
+    }
     for component in candidate.components() {
         match component {
             Component::Normal(_) => {}
@@ -307,9 +503,15 @@ fn is_safe_relative_path(path: &str) -> bool {
     true
 }
 
-async fn recover_run(State(state): State<ApiState>, Path(run_id): Path<String>) -> Result<Json<RunSummary>, StatusCode> {
-    let checkpoint_store = AtomicCheckpointStore::new(StorageLayout::new(state.storage_root.clone()));
-    checkpoint_store.load_latest(&RunId(run_id.clone())).map_err(|_| StatusCode::NOT_FOUND)?;
+async fn recover_run(
+    State(state): State<ApiState>,
+    Path(run_id): Path<String>,
+) -> Result<Json<RunSummary>, StatusCode> {
+    let checkpoint_store =
+        AtomicCheckpointStore::new(StorageLayout::new(state.storage_root.clone()));
+    checkpoint_store
+        .load_latest(&RunId(run_id.clone()))
+        .map_err(|_| StatusCode::NOT_FOUND)?;
     let handle = state.runs.create_recovered(run_id);
     if let Some(launcher) = &state.launcher {
         launcher.launch(handle.clone());
@@ -317,12 +519,25 @@ async fn recover_run(State(state): State<ApiState>, Path(run_id): Path<String>) 
     Ok(Json(handle.summary))
 }
 
-async fn run_snapshot(State(state): State<ApiState>, Path(run_id): Path<String>) -> Result<Json<RunProgressSnapshot>, StatusCode> {
-    state.runs.get(&run_id).map(|h| Json(h.progress.snapshot())).ok_or(StatusCode::NOT_FOUND)
+async fn run_snapshot(
+    State(state): State<ApiState>,
+    Path(run_id): Path<String>,
+) -> Result<Json<RunProgressSnapshot>, StatusCode> {
+    state
+        .runs
+        .get(&run_id)
+        .map(|h| Json(h.progress.snapshot()))
+        .ok_or(StatusCode::NOT_FOUND)
 }
 
-async fn ws_run(State(state): State<ApiState>, Path(run_id): Path<String>, ws: WebSocketUpgrade) -> impl IntoResponse {
-    let Some(handle) = state.runs.get(&run_id) else { return StatusCode::NOT_FOUND.into_response(); };
+async fn ws_run(
+    State(state): State<ApiState>,
+    Path(run_id): Path<String>,
+    ws: WebSocketUpgrade,
+) -> impl IntoResponse {
+    let Some(handle) = state.runs.get(&run_id) else {
+        return StatusCode::NOT_FOUND.into_response();
+    };
     ws.on_upgrade(move |socket| async move {
         let (mut sender, mut receiver) = socket.split();
         let snapshot = handle.progress.snapshot();

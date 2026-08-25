@@ -1,11 +1,13 @@
 use crate::component_factory;
 use qs_api::{RunHandle, RunLauncher, RunManager};
 use qs_core::*;
-use qs_data::{ConfiguredDataset, DataSource, NormalizationConfig};
 use qs_data::normalizers::OhlcvColumnMapping;
+use qs_data::{ConfiguredDataset, DataSource, NormalizationConfig};
 use qs_orchestrator::PipelineOrchestrator;
 use qs_search::{generate_budgeted, GenerationBudget, RuntimeSearchState};
-use qs_storage::{AtomicCheckpointStore, CatalogRunRecord, JsonlResultStore, RunCatalog, StorageLayout};
+use qs_storage::{
+    AtomicCheckpointStore, CatalogRunRecord, JsonlResultStore, RunCatalog, StorageLayout,
+};
 use serde::Deserialize;
 use std::{collections::BTreeMap, path::PathBuf};
 
@@ -16,7 +18,9 @@ pub struct AppRunLauncher {
 }
 
 impl AppRunLauncher {
-    pub fn new(runs: RunManager, storage_root: PathBuf) -> Self { Self { runs, storage_root } }
+    pub fn new(runs: RunManager, storage_root: PathBuf) -> Self {
+        Self { runs, storage_root }
+    }
 }
 
 impl RunLauncher for AppRunLauncher {
@@ -55,12 +59,23 @@ impl RunLauncher for AppRunLauncher {
                 Ok(value) => Some(value),
                 Err(_) => None,
             };
-            let recovered_results = match JsonlResultStore::new(storage_root.clone()).read_evaluations(&run_id) { Ok(value) => value, Err(_) => Vec::new() };
+            let recovered_results =
+                match JsonlResultStore::new(storage_root.clone()).read_evaluations(&run_id) {
+                    Ok(value) => value,
+                    Err(_) => Vec::new(),
+                };
             let mut ctx = PipelineContext {
                 run_id: Some(run_id.clone()),
-                run_config: Some(RunConfig { seed: 123456, pipeline_version: handle.summary.pipeline_version.clone(), selected_components }),
+                run_config: Some(RunConfig {
+                    seed: 123456,
+                    pipeline_version: handle.summary.pipeline_version.clone(),
+                    selected_components,
+                }),
                 component_states: match &recovered_checkpoint {
-                    Some(checkpoint) => ComponentStateMap { completed: checkpoint.completed_components.iter().cloned().collect(), running: None },
+                    Some(checkpoint) => ComponentStateMap {
+                        completed: checkpoint.completed_components.iter().cloned().collect(),
+                        running: None,
+                    },
                     None => ComponentStateMap::default(),
                 },
                 datasets: Default::default(),
@@ -70,7 +85,14 @@ impl RunLauncher for AppRunLauncher {
                 progress: Some(handle.progress.clone()),
                 cancellation: handle.cancellation.clone(),
                 pause: handle.pause.clone(),
-                metadata: match &recovered_checkpoint { Some(checkpoint) => checkpoint.metadata.clone(), None => RunMetadata { created_at: now, updated_at: now, tags: Default::default() } },
+                metadata: match &recovered_checkpoint {
+                    Some(checkpoint) => checkpoint.metadata.clone(),
+                    None => RunMetadata {
+                        created_at: now,
+                        updated_at: now,
+                        tags: Default::default(),
+                    },
+                },
                 bag: Default::default(),
             };
             seed_context_from_config(&mut ctx, &handle, &storage_root);
@@ -78,16 +100,25 @@ impl RunLauncher for AppRunLauncher {
             if let Some(checkpoint) = recovered_checkpoint {
                 if let Some(search_state) = checkpoint.search_state {
                     if serde_json::from_value::<RuntimeSearchState>(search_state.clone()).is_ok() {
-                        ctx.bag.insert("search_runtime_state".into(), search_state.clone());
+                        ctx.bag
+                            .insert("search_runtime_state".into(), search_state.clone());
                     }
                     ctx.bag.insert("search_state".into(), search_state);
                 }
-                ctx.bag.insert("ranking_state".into(), checkpoint.ranking_state);
-                publish_lifecycle(&handle, RunStatus::Running, "checkpoint loaded; resuming run");
+                ctx.bag
+                    .insert("ranking_state".into(), checkpoint.ranking_state);
+                publish_lifecycle(
+                    &handle,
+                    RunStatus::Running,
+                    "checkpoint loaded; resuming run",
+                );
             }
 
             publish_lifecycle(&handle, RunStatus::Running, "orchestrator started");
-            let final_state = match orchestrator.run_with_checkpoints(&mut ctx, &checkpoints).await {
+            let final_state = match orchestrator
+                .run_with_checkpoints(&mut ctx, &checkpoints)
+                .await
+            {
                 Ok(state) => state,
                 Err(err) => {
                     publish_runtime_error(&handle, "Orchestrator", err.to_string());
@@ -101,7 +132,11 @@ impl RunLauncher for AppRunLauncher {
                 PersistentRunState::Failed | PersistentRunState::Interrupted => RunStatus::Failed,
                 PersistentRunState::Running => RunStatus::Running,
             };
-            publish_lifecycle(&handle, status, &format!("run finished with state {:?}", final_state));
+            publish_lifecycle(
+                &handle,
+                status,
+                &format!("run finished with state {:?}", final_state),
+            );
             let _ = runs.set_state(&run_id.0, final_state.clone());
             let _ = persist_final_catalog(&storage_root, &run_id, final_state);
         });
@@ -109,34 +144,63 @@ impl RunLauncher for AppRunLauncher {
 }
 
 fn rebuild_candidate_sets_from_spaces(ctx: &mut PipelineContext) {
-    let budget = match ctx.bag.get("parameter_generation_budget").and_then(|value| value.as_u64()) { Some(value) => value as usize, None => 64 };
-    let seed = match ctx.run_config.as_ref().map(|config| config.seed) { Some(value) => value, None => 0 };
+    let budget = match ctx
+        .bag
+        .get("parameter_generation_budget")
+        .and_then(|value| value.as_u64())
+    {
+        Some(value) => value as usize,
+        None => 64,
+    };
+    let seed = match ctx.run_config.as_ref().map(|config| config.seed) {
+        Some(value) => value,
+        None => 0,
+    };
     for (strategy_id, space) in ctx.parameter_spaces.clone() {
-        if ctx.candidate_sets.contains_key(&strategy_id) { continue; }
-        match generate_budgeted(&space, GenerationBudget { max_candidates: budget }, seed) {
-            Ok(candidates) => { ctx.candidate_sets.insert(strategy_id, candidates); }
+        if ctx.candidate_sets.contains_key(&strategy_id) {
+            continue;
+        }
+        match generate_budgeted(
+            &space,
+            GenerationBudget {
+                max_candidates: budget,
+            },
+            seed,
+        ) {
+            Ok(candidates) => {
+                ctx.candidate_sets.insert(strategy_id, candidates);
+            }
             Err(_) => {}
         }
     }
 }
 
 fn seed_context_from_config(ctx: &mut PipelineContext, handle: &RunHandle, storage_root: &PathBuf) {
-    let path = match std::env::var("QS_DATASETS_CONFIG") { Ok(value) => PathBuf::from(value), Err(_) => PathBuf::from("configs/datasets.toml") };
+    let path = match std::env::var("QS_DATASETS_CONFIG") {
+        Ok(value) => PathBuf::from(value),
+        Err(_) => PathBuf::from("configs/datasets.toml"),
+    };
     match load_dataset_configs(&path) {
-        Ok(configs) => {
-            match serde_json::to_value(configs) {
-                Ok(value) => { ctx.bag.insert("dataset_configs".into(), value); }
-                Err(err) => publish_runtime_error(handle, "Config", err.to_string()),
+        Ok(configs) => match serde_json::to_value(configs) {
+            Ok(value) => {
+                ctx.bag.insert("dataset_configs".into(), value);
             }
-        }
+            Err(err) => publish_runtime_error(handle, "Config", err.to_string()),
+        },
         Err(err) => publish_runtime_error(handle, "Config", err),
     }
-    ctx.bag.insert("parameter_generation_budget".into(), serde_json::json!(64));
-    ctx.bag.insert("storage_root".into(), serde_json::json!(storage_root.to_string_lossy().to_string()));
+    ctx.bag
+        .insert("parameter_generation_budget".into(), serde_json::json!(64));
+    ctx.bag.insert(
+        "storage_root".into(),
+        serde_json::json!(storage_root.to_string_lossy().to_string()),
+    );
 }
 
 #[derive(Debug, Deserialize)]
-struct DatasetsToml { datasets: Vec<DatasetToml> }
+struct DatasetsToml {
+    datasets: Vec<DatasetToml>,
+}
 
 #[derive(Debug, Deserialize)]
 struct DatasetToml {
@@ -163,8 +227,10 @@ struct DatasetColumnsToml {
 }
 
 fn load_dataset_configs(path: &PathBuf) -> Result<Vec<ConfiguredDataset>, String> {
-    let text = std::fs::read_to_string(path).map_err(|e| format!("failed to read {}: {e}", path.display()))?;
-    let parsed: DatasetsToml = toml::from_str(&text).map_err(|e| format!("failed to parse {}: {e}", path.display()))?;
+    let text = std::fs::read_to_string(path)
+        .map_err(|e| format!("failed to read {}: {e}", path.display()))?;
+    let parsed: DatasetsToml =
+        toml::from_str(&text).map_err(|e| format!("failed to parse {}: {e}", path.display()))?;
     if parsed.datasets.is_empty() {
         return Err("dataset config must contain at least one dataset".into());
     }
@@ -179,14 +245,27 @@ fn load_dataset_configs(path: &PathBuf) -> Result<Vec<ConfiguredDataset>, String
             close: d.columns.close,
             volume: d.columns.volume,
             spread: d.columns.spread,
-            instrument: Instrument { symbol: d.symbol, venue: None, asset_class: None },
-            timeframe: Timeframe { name: d.timeframe_name, seconds: d.timeframe_seconds },
+            instrument: Instrument {
+                symbol: d.symbol,
+                venue: None,
+                asset_class: None,
+            },
+            timeframe: Timeframe {
+                name: d.timeframe_name,
+                seconds: d.timeframe_seconds,
+            },
             dataset_id: DatasetId(d.dataset_id.clone()),
         };
         out.push(ConfiguredDataset {
             dataset_id: DatasetId(d.dataset_id),
-            source: DataSource { uri: d.source_uri, format_hint: d.format_hint },
-            normalization: NormalizationConfig { timezone: d.timezone, timestamp_unit: d.timestamp_unit },
+            source: DataSource {
+                uri: d.source_uri,
+                format_hint: d.format_hint,
+            },
+            normalization: NormalizationConfig {
+                timezone: d.timezone,
+                timestamp_unit: d.timestamp_unit,
+            },
             mapping,
         });
     }
@@ -194,13 +273,36 @@ fn load_dataset_configs(path: &PathBuf) -> Result<Vec<ConfiguredDataset>, String
 }
 
 fn validate_dataset_config(config: &DatasetToml) -> Result<(), String> {
-    if config.dataset_id.trim().is_empty() { return Err("dataset_id cannot be empty".into()); }
-    if config.source_uri.trim().is_empty() { return Err(format!("dataset {} source_uri cannot be empty", config.dataset_id)); }
-    if config.timezone.trim().is_empty() { return Err(format!("dataset {} timezone cannot be empty", config.dataset_id)); }
-    if config.timestamp_unit != "millis" && config.timestamp_unit != "seconds" && config.timestamp_unit != "nanos" {
-        return Err(format!("dataset {} unsupported timestamp_unit {}", config.dataset_id, config.timestamp_unit));
+    if config.dataset_id.trim().is_empty() {
+        return Err("dataset_id cannot be empty".into());
     }
-    if config.timeframe_seconds == 0 { return Err(format!("dataset {} timeframe_seconds must be positive", config.dataset_id)); }
+    if config.source_uri.trim().is_empty() {
+        return Err(format!(
+            "dataset {} source_uri cannot be empty",
+            config.dataset_id
+        ));
+    }
+    if config.timezone.trim().is_empty() {
+        return Err(format!(
+            "dataset {} timezone cannot be empty",
+            config.dataset_id
+        ));
+    }
+    if config.timestamp_unit != "millis"
+        && config.timestamp_unit != "seconds"
+        && config.timestamp_unit != "nanos"
+    {
+        return Err(format!(
+            "dataset {} unsupported timestamp_unit {}",
+            config.dataset_id, config.timestamp_unit
+        ));
+    }
+    if config.timeframe_seconds == 0 {
+        return Err(format!(
+            "dataset {} timeframe_seconds must be positive",
+            config.dataset_id
+        ));
+    }
     for (name, value) in [
         ("timestamp", &config.columns.timestamp),
         ("open", &config.columns.open),
@@ -208,25 +310,85 @@ fn validate_dataset_config(config: &DatasetToml) -> Result<(), String> {
         ("low", &config.columns.low),
         ("close", &config.columns.close),
     ] {
-        if value.trim().is_empty() { return Err(format!("dataset {} column {name} cannot be empty", config.dataset_id)); }
+        if value.trim().is_empty() {
+            return Err(format!(
+                "dataset {} column {name} cannot be empty",
+                config.dataset_id
+            ));
+        }
     }
     Ok(())
 }
 
-fn persist_initial_catalog(root: &PathBuf, handle: &RunHandle, now: i64) -> Result<(), StorageError> {
+fn persist_initial_catalog(
+    root: &PathBuf,
+    handle: &RunHandle,
+    now: i64,
+) -> Result<(), StorageError> {
     let catalog = RunCatalog::open(&root.join("catalog").join("runs.sqlite"))?;
-    catalog.upsert_run(&CatalogRunRecord { run_id: RunId(handle.summary.run_id.clone()), state: PersistentRunState::Running, created_at: now, updated_at: now, pipeline_version: handle.summary.pipeline_version.clone(), seed: 123456, metadata: RunMetadata { created_at: now, updated_at: now, tags: BTreeMap::new() } })
+    catalog.upsert_run(&CatalogRunRecord {
+        run_id: RunId(handle.summary.run_id.clone()),
+        state: PersistentRunState::Running,
+        created_at: now,
+        updated_at: now,
+        pipeline_version: handle.summary.pipeline_version.clone(),
+        seed: 123456,
+        metadata: RunMetadata {
+            created_at: now,
+            updated_at: now,
+            tags: BTreeMap::new(),
+        },
+    })
 }
 
-fn persist_final_catalog(root: &PathBuf, run_id: &RunId, state: PersistentRunState) -> Result<(), StorageError> {
+fn persist_final_catalog(
+    root: &PathBuf,
+    run_id: &RunId,
+    state: PersistentRunState,
+) -> Result<(), StorageError> {
     let catalog = RunCatalog::open(&root.join("catalog").join("runs.sqlite"))?;
     catalog.set_state(run_id, state, chrono::Utc::now().timestamp_millis())
 }
 
 fn publish_lifecycle(handle: &RunHandle, status: RunStatus, message: &str) {
-    handle.progress.publish(ProgressEvent { schema_version: 1, run_id: RunId(handle.summary.run_id.clone()), stage: "RunSupervisor".into(), status, worker_id: None, current: 0, total: None, percent: None, best_score_so_far: None, message: message.into(), error: None, timestamp: chrono::Utc::now().timestamp_millis() });
+    handle.progress.publish(ProgressEvent {
+        schema_version: 1,
+        run_id: RunId(handle.summary.run_id.clone()),
+        stage: "RunSupervisor".into(),
+        status,
+        worker_id: None,
+        current: 0,
+        total: None,
+        percent: None,
+        best_score_so_far: None,
+        message: message.into(),
+        error: None,
+        timestamp: chrono::Utc::now().timestamp_millis(),
+    });
 }
 
 fn publish_runtime_error(handle: &RunHandle, stage: &str, message: String) {
-    handle.progress.publish(ProgressEvent { schema_version: 1, run_id: RunId(handle.summary.run_id.clone()), stage: stage.into(), status: RunStatus::Failed, worker_id: None, current: 0, total: None, percent: None, best_score_so_far: None, message: message.clone(), error: Some(SerializableError { code: "RUNTIME_ERROR".into(), category: ErrorCategory::Internal, message, component_id: None, strategy_id: None, parameter_set_id: None, retryable: false, timestamp: chrono::Utc::now().timestamp_millis() }), timestamp: chrono::Utc::now().timestamp_millis() });
+    handle.progress.publish(ProgressEvent {
+        schema_version: 1,
+        run_id: RunId(handle.summary.run_id.clone()),
+        stage: stage.into(),
+        status: RunStatus::Failed,
+        worker_id: None,
+        current: 0,
+        total: None,
+        percent: None,
+        best_score_so_far: None,
+        message: message.clone(),
+        error: Some(SerializableError {
+            code: "RUNTIME_ERROR".into(),
+            category: ErrorCategory::Internal,
+            message,
+            component_id: None,
+            strategy_id: None,
+            parameter_set_id: None,
+            retryable: false,
+            timestamp: chrono::Utc::now().timestamp_millis(),
+        }),
+        timestamp: chrono::Utc::now().timestamp_millis(),
+    });
 }

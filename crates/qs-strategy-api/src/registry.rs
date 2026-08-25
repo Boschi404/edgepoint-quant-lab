@@ -8,7 +8,11 @@ pub struct StaticStrategyRegistry {
 }
 
 impl StaticStrategyRegistry {
-    pub fn new() -> Self { Self { strategies: BTreeMap::new() } }
+    pub fn new() -> Self {
+        Self {
+            strategies: BTreeMap::new(),
+        }
+    }
 
     pub fn register<P>(&mut self, plugin: P) -> Result<(), StrategyError>
     where
@@ -22,15 +26,23 @@ impl StaticStrategyRegistry {
                 retryable: false,
             });
         }
-        self.strategies.insert(metadata.strategy_id, Arc::new(plugin));
+        self.strategies
+            .insert(metadata.strategy_id, Arc::new(plugin));
         Ok(())
     }
 
-    pub fn get(&self, id: &StrategyId) -> Option<Arc<dyn StrategyPlugin>> { self.strategies.get(id).cloned() }
+    pub fn get(&self, id: &StrategyId) -> Option<Arc<dyn StrategyPlugin>> {
+        self.strategies.get(id).cloned()
+    }
 
-    pub fn list_ids(&self) -> Vec<StrategyId> { self.strategies.keys().cloned().collect() }
+    pub fn list_ids(&self) -> Vec<StrategyId> {
+        self.strategies.keys().cloned().collect()
+    }
 
     pub fn parameter_spaces(&self) -> BTreeMap<StrategyId, ParameterSpace> {
-        self.strategies.iter().map(|(id, plugin)| (id.clone(), plugin.parameter_space())).collect()
+        self.strategies
+            .iter()
+            .map(|(id, plugin)| (id.clone(), plugin.parameter_space()))
+            .collect()
     }
 }

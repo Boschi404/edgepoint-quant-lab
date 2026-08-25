@@ -4,16 +4,26 @@ use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum PipelineError {
-    #[error("data error: {0}")] Data(#[from] DataError),
-    #[error("strategy error: {0}")] Strategy(#[from] StrategyError),
-    #[error("search error: {0}")] Search(#[from] SearchError),
-    #[error("storage error: {0}")] Storage(#[from] StorageError),
-    #[error("checkpoint error: {0}")] Checkpoint(#[from] CheckpointError),
-    #[error("validation error: {0}")] Validation(#[from] ValidationError),
-    #[error("export error: {0}")] Export(#[from] ExportError),
-    #[error("cancelled")] Cancelled,
-    #[error("paused")] Paused,
-    #[error("internal invariant violation: {message}")] Invariant { message: String },
+    #[error("data error: {0}")]
+    Data(#[from] DataError),
+    #[error("strategy error: {0}")]
+    Strategy(#[from] StrategyError),
+    #[error("search error: {0}")]
+    Search(#[from] SearchError),
+    #[error("storage error: {0}")]
+    Storage(#[from] StorageError),
+    #[error("checkpoint error: {0}")]
+    Checkpoint(#[from] CheckpointError),
+    #[error("validation error: {0}")]
+    Validation(#[from] ValidationError),
+    #[error("export error: {0}")]
+    Export(#[from] ExportError),
+    #[error("cancelled")]
+    Cancelled,
+    #[error("paused")]
+    Paused,
+    #[error("internal invariant violation: {message}")]
+    Invariant { message: String },
 }
 
 macro_rules! simple_error {
@@ -21,7 +31,11 @@ macro_rules! simple_error {
         #[derive(Debug, Error)]
         pub enum $name {
             #[error("{code}: {message}")]
-            Message { code: String, message: String, retryable: bool },
+            Message {
+                code: String,
+                message: String,
+                retryable: bool,
+            },
         }
     };
 }
@@ -35,7 +49,17 @@ simple_error!(ValidationError);
 simple_error!(ExportError);
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum ErrorCategory { Data, Strategy, Search, Storage, Checkpoint, Validation, Export, Cancellation, Internal }
+pub enum ErrorCategory {
+    Data,
+    Strategy,
+    Search,
+    Storage,
+    Checkpoint,
+    Validation,
+    Export,
+    Cancellation,
+    Internal,
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SerializableError {
@@ -53,7 +77,11 @@ impl PipelineError {
     pub fn to_serializable(&self, component_id: Option<ComponentId>) -> SerializableError {
         let now = chrono::Utc::now().timestamp_millis();
         SerializableError {
-            code: match self { PipelineError::Cancelled => "CANCELLED".into(), PipelineError::Paused => "PAUSED".into(), _ => "PIPELINE_ERROR".into() },
+            code: match self {
+                PipelineError::Cancelled => "CANCELLED".into(),
+                PipelineError::Paused => "PAUSED".into(),
+                _ => "PIPELINE_ERROR".into(),
+            },
             category: match self {
                 PipelineError::Data(_) => ErrorCategory::Data,
                 PipelineError::Strategy(_) => ErrorCategory::Strategy,

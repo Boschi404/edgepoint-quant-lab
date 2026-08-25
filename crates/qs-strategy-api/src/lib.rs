@@ -23,9 +23,16 @@ pub struct SignalEvent {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct StrategyRunInput { pub dataset: MarketDataset, pub parameters: ParameterSet, pub seed: u64 }
+pub struct StrategyRunInput {
+    pub dataset: MarketDataset,
+    pub parameters: ParameterSet,
+    pub seed: u64,
+}
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct StrategyRunOutput { pub signals: Vec<SignalEvent>, pub diagnostics: BTreeMap<String, ScalarValue> }
+pub struct StrategyRunOutput {
+    pub signals: Vec<SignalEvent>,
+    pub diagnostics: BTreeMap<String, ScalarValue>,
+}
 
 pub trait StrategyPlugin: Send + Sync {
     fn metadata(&self) -> StrategyMetadata;

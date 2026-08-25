@@ -3,13 +3,25 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum ScalarValue { Int(i64), Float(f64), Bool(bool), Text(String) }
+pub enum ScalarValue {
+    Int(i64),
+    Float(f64),
+    Bool(bool),
+    Text(String),
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct Instrument { pub symbol: String, pub venue: Option<String>, pub asset_class: Option<String> }
+pub struct Instrument {
+    pub symbol: String,
+    pub venue: Option<String>,
+    pub asset_class: Option<String>,
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct Timeframe { pub name: String, pub seconds: u64 }
+pub struct Timeframe {
+    pub name: String,
+    pub seconds: u64,
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DatasetMetadata {
@@ -55,7 +67,11 @@ pub struct DataQualityReport {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum DataQualityStatus { Passed, PassedWithWarnings, Failed }
+pub enum DataQualityStatus {
+    Passed,
+    PassedWithWarnings,
+    Failed,
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DataQualityCheckResult {
@@ -67,13 +83,25 @@ pub struct DataQualityCheckResult {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum QualitySeverity { Info, Warning, Error }
+pub enum QualitySeverity {
+    Info,
+    Warning,
+    Error,
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct DataFixLog { pub fix_name: String, pub message: String, pub affected_rows: Vec<usize> }
+pub struct DataFixLog {
+    pub fix_name: String,
+    pub message: String,
+    pub affected_rows: Vec<usize>,
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum DataQualityPolicy { Block, Warn, AutoFixAndLog }
+pub enum DataQualityPolicy {
+    Block,
+    Warn,
+    AutoFixAndLog,
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ParameterSet {
@@ -85,10 +113,24 @@ pub struct ParameterSet {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
-pub enum ParameterValue { Int(i64), Float(f64), Bool(bool), Enum(String), Text(String) }
+pub enum ParameterValue {
+    Int(i64),
+    Float(f64),
+    Bool(bool),
+    Enum(String),
+    Text(String),
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum ParameterSetSource { Grid, RandomSparse, LatinHypercube, BayesianSuggestion, NeighborhoodExpansion, ManualSeed, ResumeRecovered }
+pub enum ParameterSetSource {
+    Grid,
+    RandomSparse,
+    LatinHypercube,
+    BayesianSuggestion,
+    NeighborhoodExpansion,
+    ManualSeed,
+    ResumeRecovered,
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ParameterSpace {
@@ -99,27 +141,53 @@ pub struct ParameterSpace {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct ParameterDefinition { pub name: String, pub kind: ParameterKind, pub default: Option<ParameterValue> }
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum ParameterKind {
-    IntRange { min: i64, max: i64, step: i64 },
-    FloatRange { min: f64, max: f64, step: Option<f64>, scale: NumericScale },
-    Bool,
-    Enum { values: Vec<String> },
+pub struct ParameterDefinition {
+    pub name: String,
+    pub kind: ParameterKind,
+    pub default: Option<ParameterValue>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum NumericScale { Linear, Log }
+pub enum ParameterKind {
+    IntRange {
+        min: i64,
+        max: i64,
+        step: i64,
+    },
+    FloatRange {
+        min: f64,
+        max: f64,
+        step: Option<f64>,
+        scale: NumericScale,
+    },
+    Bool,
+    Enum {
+        values: Vec<String>,
+    },
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct ParameterConstraint { pub expression: String }
+pub enum NumericScale {
+    Linear,
+    Log,
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct NeighborhoodDefinition { pub metric: String, pub weights: BTreeMap<String, f64> }
+pub struct ParameterConstraint {
+    pub expression: String,
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum TradeDirection { Long, Short }
+pub struct NeighborhoodDefinition {
+    pub metric: String,
+    pub weights: BTreeMap<String, f64>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum TradeDirection {
+    Long,
+    Short,
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Trade {
@@ -141,7 +209,12 @@ pub struct Trade {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct EquityPoint { pub timestamp: i64, pub equity: f64, pub drawdown: f64, pub underwater: bool }
+pub struct EquityPoint {
+    pub timestamp: i64,
+    pub equity: f64,
+    pub drawdown: f64,
+    pub underwater: bool,
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct EvaluationResult {
@@ -156,7 +229,10 @@ pub struct EvaluationResult {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
-pub struct EvaluationDiagnostics { pub warnings: Vec<String>, pub extra: BTreeMap<String, ScalarValue> }
+pub struct EvaluationDiagnostics {
+    pub warnings: Vec<String>,
+    pub extra: BTreeMap<String, ScalarValue>,
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 pub struct MetricBundle {
@@ -201,22 +277,42 @@ pub struct StabilityMetrics {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct RollingPoint { pub timestamp: i64, pub value: f64 }
+pub struct RollingPoint {
+    pub timestamp: i64,
+    pub value: f64,
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct CrisisWindowMetric { pub window_id: String, pub start: i64, pub end: i64, pub total_r: f64, pub max_drawdown: f64 }
+pub struct CrisisWindowMetric {
+    pub window_id: String,
+    pub start: i64,
+    pub end: i64,
+    pub total_r: f64,
+    pub max_drawdown: f64,
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
-pub struct RegimeMetrics { pub per_regime: BTreeMap<String, MetricBundleLite> }
+pub struct RegimeMetrics {
+    pub per_regime: BTreeMap<String, MetricBundleLite>,
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
-pub struct RollingMetrics { pub points: BTreeMap<String, Vec<RollingPoint>> }
+pub struct RollingMetrics {
+    pub points: BTreeMap<String, Vec<RollingPoint>>,
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
-pub struct StressMetrics { pub scenarios: BTreeMap<String, MetricBundleLite> }
+pub struct StressMetrics {
+    pub scenarios: BTreeMap<String, MetricBundleLite>,
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
-pub struct MetricBundleLite { pub total_r: f64, pub profit_factor: f64, pub max_drawdown: f64, pub trade_count: u64 }
+pub struct MetricBundleLite {
+    pub total_r: f64,
+    pub profit_factor: f64,
+    pub max_drawdown: f64,
+    pub trade_count: u64,
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum DataContract {
