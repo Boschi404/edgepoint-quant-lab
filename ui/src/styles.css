@@ -1,27 +1,91 @@
 :root { color-scheme: dark; font-family: Inter, system-ui, sans-serif; background: #0b1020; color: #e6eaf2; }
 body { margin: 0; }
-button { border: 1px solid #334155; background: #111827; color: #e6eaf2; border-radius: 8px; padding: 0.6rem 0.8rem; cursor: pointer; }
-button:hover, button.selected { background: #1d4ed8; }
-.shell { min-height: 100vh; display: grid; grid-template-columns: 320px 1fr; }
-.sidebar { border-right: 1px solid #1f2937; padding: 1rem; background: #070b16; }
-.sidebar h1 { margin-top: 0; }
-.runs { display: grid; gap: 0.5rem; }
-.runs button { display: grid; text-align: left; gap: 0.2rem; }
-.runs span { color: #9ca3af; }
-.content { padding: 1rem 1.5rem; }
-.toolbar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; border: 1px solid #1f2937; padding: 0.75rem; border-radius: 12px; background: #0f172a; }
+
+button {
+  border: 1px solid #334155; background: #111827; color: #e6eaf2;
+  border-radius: 8px; padding: 0.55rem 0.85rem; cursor: pointer;
+  font: inherit; transition: background-color 120ms ease-out, border-color 120ms ease-out;
+}
+button:hover:not(:disabled), button.selected { background: #1d4ed8; border-color: #1d4ed8; }
+button:disabled { opacity: 0.45; cursor: not-allowed; }
+button:focus-visible { outline: 2px solid #93c5fd; outline-offset: 2px; }
+button.primary { background: #1d4ed8; border-color: #2563eb; font-weight: 600; }
+button.primary:hover:not(:disabled) { background: #2563eb; }
+button.danger { border-color: #7f1d1d; color: #fca5a5; }
+button.danger:hover:not(:disabled) { background: #7f1d1d; border-color: #b91c1c; color: #fee2e2; }
+
+.shell { min-height: 100vh; display: grid; grid-template-columns: 340px 1fr; }
+.sidebar { border-right: 1px solid #1f2937; padding: 1rem; background: #070b16; display: flex; flex-direction: column; gap: 0.75rem; }
+.sidebar h1 { margin: 0; font-size: 1.15rem; letter-spacing: -0.01em; }
+.sidebar h2 { margin: 0.25rem 0 0; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.08em; color: #9ca3af; }
+.sidebar-actions { display: flex; gap: 0.5rem; }
+
+.runs { display: grid; gap: 0.5rem; overflow-y: auto; }
+.run-item { display: grid; grid-template-columns: 1fr auto; gap: 0.15rem 0.5rem; text-align: left; align-items: center; }
+.run-id { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.run-time { grid-column: 1 / -1; color: #9ca3af; font-size: 0.78rem; }
+.empty-hint { color: #9ca3af; margin: 0.25rem 0; line-height: 1.5; }
+.empty-hint button { padding: 0.25rem 0.6rem; margin-left: 0.35rem; }
+.error-text { color: #fca5a5; }
+
+.state-chip {
+  display: inline-block; padding: 0.1rem 0.5rem; border-radius: 999px;
+  font-size: 0.72rem; font-weight: 600; border: 1px solid transparent; white-space: nowrap;
+}
+.chip-pending   { color: #cbd5e1; background: #1e293b; border-color: #334155; }
+.chip-running   { color: #93c5fd; background: #172554; border-color: #1d4ed8; }
+.chip-paused    { color: #fcd34d; background: #451a03; border-color: #b45309; }
+.chip-completed { color: #86efac; background: #052e16; border-color: #15803d; }
+.chip-failed    { color: #fca5a5; background: #450a0a; border-color: #b91c1c; }
+.chip-cancelled, .chip-cancelling { color: #d4d4d8; background: #27272a; border-color: #52525b; }
+
+.content { padding: 1rem 1.5rem; display: flex; flex-direction: column; gap: 1rem; }
+
+.banner {
+  display: flex; justify-content: space-between; align-items: center; gap: 1rem;
+  border-radius: 10px; padding: 0.65rem 0.9rem; border: 1px solid;
+}
+.banner.error { background: #450a0a; border-color: #b91c1c; color: #fecaca; }
+.banner.info  { background: #172554; border-color: #1d4ed8; color: #bfdbfe; }
+.banner-close { padding: 0.1rem 0.55rem; font-size: 1rem; line-height: 1.2; }
+
+.toolbar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; border: 1px solid #1f2937; padding: 0.75rem; border-radius: 12px; background: #0f172a; flex-wrap: wrap; }
+.toolbar-meta { display: grid; gap: 0.2rem; font-size: 0.92rem; }
 .commands { display: flex; gap: 0.5rem; }
+
+.socket-connected    { color: #86efac; }
+.socket-connecting,
+.socket-reconnecting { color: #fcd34d; }
+.socket-offline      { color: #fca5a5; font-weight: 600; }
+
+.panels { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+.panel { border: 1px solid #1f2937; border-radius: 12px; background: #0f172a; padding: 1rem; min-width: 0; }
+.panel h2 { margin-top: 0; font-size: 0.95rem; }
+.panel-empty { color: #9ca3af; }
+.panel li { margin: 0.35rem 0; overflow-wrap: anywhere; }
+.panel span { color: #9ca3af; }
+
+pre { white-space: pre-wrap; color: #d1d5db; margin: 0; }
+.panel pre { max-height: 280px; overflow: auto; }
+.event-error { color: #fca5a5; background: #450a0a; border-radius: 6px; padding: 0.5rem; margin-top: 0.35rem; }
+
+.events-title { margin: 0.5rem 0 0; font-size: 1rem; }
 .events { display: grid; gap: 0.75rem; }
 .event { border: 1px solid #1f2937; border-left: 4px solid #64748b; border-radius: 10px; padding: 0.75rem; background: #0f172a; }
-.event header { display: flex; justify-content: space-between; gap: 1rem; }
+.event header { display: flex; align-items: center; gap: 0.75rem; }
+.event header span:last-child { margin-left: auto; font-variant-numeric: tabular-nums; }
 .event.completed { border-left-color: #22c55e; }
-.event.failed { border-left-color: #ef4444; }
-.event.running { border-left-color: #3b82f6; }
-.event.paused { border-left-color: #f59e0b; }
-pre { white-space: pre-wrap; color: #fecaca; }
-.panels { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1rem; }
-.panel { border: 1px solid #1f2937; border-radius: 12px; background: #0f172a; padding: 1rem; min-width: 0; }
-.panel pre { max-height: 280px; overflow: auto; color: #d1d5db; }
+.event.failed    { border-left-color: #ef4444; }
+.event.running   { border-left-color: #3b82f6; }
+.event.paused    { border-left-color: #f59e0b; }
+.event.pending   { border-left-color: #64748b; }
+.event.cancelled, .event.cancelling { border-left-color: #a1a1aa; }
+.event-meta { color: #9ca3af; font-size: 0.82rem; margin: 0.35rem 0 0; }
+.event p { margin: 0.35rem 0 0; }
+
 a { color: #93c5fd; }
-.panel li { margin: 0.35rem 0; }
-.panel span { color: #9ca3af; }
+
+@media (max-width: 1100px) {
+  .shell { grid-template-columns: 280px 1fr; }
+  .panels { grid-template-columns: 1fr; }
+}
